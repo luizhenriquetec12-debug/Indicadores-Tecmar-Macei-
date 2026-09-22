@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Indicadores de Descargas · Tecmar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --tecmar-green:#00A884;--tecmar-green-2:#33c4a3;--tecmar-green-soft:#e6f7f2;
+    --navy:#0a2e5c;--navy2:#16305c;--ink:#0a2e5c;--text:#0b1a36;--text-2:#5a6a85;--text-3:#8a94a6;
+    --bg:#f4f6fa;--surface:#ffffff;--surface-2:#fafbfd;
+    --border:#e4e9f2;--border-2:#dde3ec;--amber:#f0a500;--purple:#7c5cff;--red:#e04f5f;
+    --radius:16px;--radius-lg:20px;
+    --shadow-xs:0 1px 2px rgba(11,26,54,.05);
+    --shadow-sm:0 2px 10px -4px rgba(11,26,54,.08),0 1px 3px rgba(11,26,54,.05);
+    --shadow-md:0 12px 30px -10px rgba(11,26,54,.18);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Nunito',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+  main{max-width:1420px;margin:0 auto;padding:16px 22px 56px}
+
+  header.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding:8px 4px;margin-bottom:14px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;box-shadow:0 10px 22px rgba(11,26,54,.2);flex-shrink:0}
+  h1{font-size:16px;margin:0;font-weight:900;letter-spacing:-0.01em}
+  .sub{display:block;margin-top:2px;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  select,.btn{height:40px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--navy);font-size:13px;font-weight:800;padding:0 14px;cursor:pointer;font-family:inherit;box-shadow:var(--shadow-xs);transition:all .15s}
+  .btn:hover{border-color:var(--tecmar-green);color:var(--tecmar-green)}
+  .btn.primary{background:var(--tecmar-green);border-color:var(--tecmar-green);color:#fff}
+  .btn.primary:hover{background:#008f70;color:#fff}
+  .btn svg{vertical-align:-2px;margin-right:6px}
+  .spin{animation:spin 1s linear infinite;display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .status{display:flex;align-items:center;gap:8px;padding:0 4px;margin-bottom:16px;font-size:11.5px;font-weight:700;color:var(--text-3);flex-wrap:wrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--text-3)}
+  .dot.ok{background:var(--tecmar-green)}
+  .dot.err{background:var(--red)}
+  .badge{border-radius:999px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--navy);padding:2px 99px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{border-top:3px solid var(--navy);border-radius:var(--radius);background:var(--surface);padding:15px 16px;box-shadow:var(--shadow-xs)}
+  .kpi.p{border-top-color:var(--tecmar-green)} .kpi.a{border-top-color:var(--amber)} .kpi.u{border-top-color:var(--purple)}
+  .kpi .k{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+  .kpi .v{display:block;margin-top:7px;font-size:20px;font-weight:900;letter-spacing:-0.02em;line-height:1.2}
+  .kpi .s{display:block;margin-top:4px;font-size:11.5px;font-weight:700;color:var(--text-2)}
+
+  .grid2{display:grid;gap:14px;grid-template-columns:1fr;margin-bottom:14px}
+  .grid3{display:grid;gap:14px;grid-template-columns:1fr;margin-bottom:14px}
+  @media(min-width:900px){.grid2{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:2fr 1fr}}
+
+  .panel{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-xs)}
+  .panel>.h{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding:13px 17px;flex-wrap:wrap}
+  .panel h2{margin:0;font-size:13px;font-weight:900;display:flex;align-items:center;gap:8px}
+  .panel h2::before{content:"";width:5px;height:14px;border-radius:999px;background:var(--tecmar-green)}
+  .tag{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3)}
+  .b{padding:16px 17px}
+  .chart{position:relative;height:250px}
+  .chart.sm{height:220px}
+  .chart.donut{height:220px}
+
+  .motoristas{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+  .mcard{border:1px solid var(--border);border-radius:14px;background:var(--surface-2);padding:14px;cursor:pointer;transition:.18s;display:flex;gap:10px;align-items:flex-start}
+  .mcard:hover{transform:translateY(-2px);border-color:var(--tecmar-green);background:#fff;box-shadow:var(--shadow-sm)}
+  .mav{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--navy),var(--tecmar-green));color:#fff;display:grid;place-items:center;font-weight:900;font-size:12.5px;flex-shrink:0}
+  .mbody{min-width:0;flex:1}
+  .nm{font-size:12.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .msub{font-size:10.5px;color:var(--text-3);font-weight:700;margin-bottom:6px}
+  .mrow{display:flex;justify-content:space-between;font-size:10px;color:var(--text-3);font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .mval{font-size:12.5px;font-weight:900;color:var(--tecmar-green)}
+
+  .rank{list-style:none;margin:0;padding:0;max-height:320px;overflow:auto}
+  .rank li{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:10px;font-size:12.5px;font-weight:800}
+  .rank .pos{width:20px;height:20px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border-2);display:grid;place-items:center;font-size:10.5px;font-weight:900;color:var(--text-2);flex-shrink:0}
+  .rank li:first-child .pos{background:var(--tecmar-green);color:#fff;border-color:var(--tecmar-green)}
+  .rank .rv{margin-left:auto;color:var(--tecmar-green);font-weight:900}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--text-3)}
+  .empty p{font-size:12.5px;font-weight:700;margin-top:8px}
+
+  .dlg{position:fixed;inset:0;background:rgba(11,26,54,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:200}
+  .dlg.open{display:flex}
+  .dlg .box{background:#fff;border-radius:20px;max-width:820px;width:100%;max-height:86vh;overflow:auto;padding:22px;position:relative;box-shadow:var(--shadow-md)}
+  .close{position:absolute;top:16px;right:16px;border:none;background:var(--surface-2);border-radius:10px;width:32px;height:32px;cursor:pointer;font-weight:900;color:var(--text-2)}
+  .close:hover{background:#fde8e8;color:var(--red)}
+  .dlg h3{font-size:16px;font-weight:900}
+  .dlg .d{font-size:12px;color:var(--text-2);font-weight:700;margin-top:2px}
+  input[type=text]{height:42px;border-radius:12px;border:1px solid var(--border-2);padding:0 12px;width:100%;font-family:inherit;font-size:13px}
+  input[type=text]:focus{outline:none;border-color:var(--tecmar-green)}
+  textarea:focus{outline:none;border-color:var(--tecmar-green)}
+  .pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:10.5px;font-weight:900}
+  .pill.ok{background:#e6f7f2;color:var(--tecmar-green)}
+  .pill.warn{background:#fdeceb;color:var(--red)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:12px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:800;padding:9px 8px;border-bottom:1px solid var(--border)}
+  td{padding:9px 8px;border-bottom:1px solid #f0f3f8;font-weight:700}
+  tfoot td{font-weight:900;color:var(--tecmar-green);border-top:2px solid var(--border);border-bottom:0}
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div class="brand">
+      <span class="logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 17h4V5H2v12h3"></path><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"></path>
+          <circle cx="7.5" cy="17.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle>
+        </svg>
+      </span>
+      <div>
+        <h1>Indicadores de Descargas</h1>
+        <span class="sub">Filial Maceió · Dados em tempo real</span>
+      </div>
+    </div>
+    <div class="controls">
+      <select id="mes"><option value="TODOS">Todos os meses</option></select>
+      <button class="btn" id="btnRel033">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+        REL033
+      </button>
+      <button class="btn" id="btnRel068">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+        REL068
+      </button>
+      <button class="btn" id="btnCfg">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Conexão
+      </button>
+      <button class="btn primary" id="btnUp">
+        <svg id="iconRefresh" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+        Atualizar
+      </button>
+    </div>
+  </header>
+
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span id="stx">Configure a conexão com a planilha para começar.</span>
+    <span class="badge" id="bdemo" style="display:none">Demonstração</span>
+  </div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <div class="grid3">
+    <section class="panel"><div class="h"><h2>Evolução de Gastos</h2><span class="tag">Por mês</span></div>
+      <div class="b"><div class="chart sm"><canvas id="c3"></canvas></div></div></section>
+    <section class="panel"><div class="h"><h2>Chapa × Distribuidor</h2><span class="tag">R$ total</span></div>
+      <div class="b"><div class="chart donut"><canvas id="c4"></canvas></div></div></section>
+  </div>
+
+  <div class="grid2">
+    <section class="panel"><div class="h"><h2>Gasto com Chapa por Cidade</h2><span class="tag">R$ total</span></div>
+      <div class="b"><div class="chart"><canvas id="c1"></canvas></div></div></section>
+    <section class="panel"><div class="h"><h2>Volume de Solicitações por Cidade</h2><span class="tag">Qtd. registros</span></div>
+      <div class="b"><div class="chart"><canvas id="c2"></canvas></div></div></section>
+  </div>
+
+  <section class="panel" style="margin-bottom:14px">
+    <div class="h"><h2>Motoristas</h2><span class="tag" id="tagMot"></span></div>
+    <div class="b">
+      <p style="margin:0 0 12px;font-size:11.5px;font-weight:700;color:var(--text-2)">Clique em um motorista para ver a relação completa das descargas dele.</p>
+      <div class="motoristas" id="mot"></div>
+    </div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel"><div class="h"><h2>Ranking · Motoristas (Gasto com Chapa)</h2><span class="tag" id="t1"></span></div>
+      <div class="b"><ul class="rank" id="r1"></ul></div></section>
+    <section class="panel"><div class="h"><h2>Ranking · Cidades (Gasto Total)</h2><span class="tag" id="t2"></span></div>
+      <div class="b"><ul class="rank" id="r2"></ul></div></section>
+  </div>
+
+  <div class="grid2">
+    <section class="panel"><div class="h"><h2>Frota × Agregado × Distribuidor</h2><span class="tag">R$ total</span></div>
+      <div class="b"><div class="chart donut"><canvas id="c5"></canvas></div></div></section>
+    <section class="panel"><div class="h"><h2>Custo por Tipo de Veículo</h2>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn" id="fVeicChapa" style="height:30px;padding:0 12px;font-size:11px" onclick="setFiltroVeiculo('CHAPA')">Chapa</button>
+        <button class="btn" id="fVeicDist" style="height:30px;padding:0 12px;font-size:11px" onclick="setFiltroVeiculo('DISTRIBUIDOR')">Distribuidor</button>
+      </div></div>
+      <div class="b"><div class="chart sm"><canvas id="c6"></canvas></div></div></section>
+  </div>
+
+  <div class="grid2">
+    <section class="panel"><div class="h"><h2>Saúde do Gasto com Chapa</h2><span class="tag">Indicadores</span></div>
+      <div class="b" id="saudeChapa" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"></div></section>
+    <section class="panel"><div class="h"><h2>Comparativo Mensal</h2><span class="tag">Chapa vs mês anterior</span></div>
+      <div class="b" id="compMes"></div></section>
+  </div>
+
+  <div class="grid2">
+    <section class="panel"><div class="h"><h2>Intervalo entre Solicitações · Chapa</h2><span class="tag">Dias, por motorista</span></div>
+      <div class="b">
+        <p style="margin:0 0 12px;font-size:11.5px;font-weight:700;color:var(--text-2)">Quantos dias, em média, se passam entre uma solicitação de chapa e a próxima, para o mesmo motorista. Menos dias = mais recorrência de solicitações.</p>
+        <ul class="rank" id="rIntervalo"></ul>
+      </div></section>
+    <section class="panel"><div class="h"><h2>Romaneios Repetidos (Complementos)</h2><span class="tag" id="tagComplemento"></span></div>
+      <div class="b">
+        <p style="margin:0 0 12px;font-size:11.5px;font-weight:700;color:var(--text-2)">Romaneios que aparecem mais de uma vez na planilha — cada repetição extra é contada como um complemento da mesma solicitação.</p>
+        <ul class="rank" id="rComplemento"></ul>
+      </div></section>
+  </div>
+
+  <section class="panel" style="margin-bottom:14px">
+    <div class="h"><h2>Comparativo Frete × Descarga (via REL033 / REL068)</h2><span class="tag" id="tagFrete"></span></div>
+    <div class="b">
+      <p style="margin:0 0 12px;font-size:11.5px;font-weight:700;color:var(--text-2)">Para cada romaneio pago (Chapa ou Distribuidor), soma o valor de frete de todos os CTEs do REL068/REL033 que pertencem àquele romaneio e compara com o valor pago na descarga.</p>
+      <div id="freteTabWrap"></div>
+    </div>
+  </section>
+</main>
+
+<div class="dlg" id="dDrill">
+  <div class="box">
+    <button class="close" onclick="closeDlg('dDrill')">✕</button>
+    <h3 id="dt">Detalhes das Descargas</h3>
+    <p class="d" id="ds"></p>
+    <div id="dtab"></div>
+  </div>
+</div>
+
+<div class="dlg" id="dRel033">
+  <div class="box" style="max-width:640px">
+    <button class="close" onclick="closeDlg('dRel033')">✕</button>
+    <h3>Importar REL033</h3>
+
+    <div style="margin-top:10px;border:1.5px dashed var(--tecmar-green);border-radius:12px;padding:16px;background:var(--surface-2)">
+      <p class="d">Arquivo Excel/CSV com um romaneio por linha e o frete já somado.</p>
+      <input type="file" id="rel092File" accept=".csv,.txt,.xlsx,.xls" style="margin-top:8px">
+      <p class="tag" id="rel092Status" style="margin-top:8px;display:inline-block"></p>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn" id="btnRel033Clear">Limpar todos os dados</button>
+    </div>
+  </div>
+</div>
+
+<div class="dlg" id="dRel068">
+  <div class="box" style="max-width:640px">
+    <button class="close" onclick="closeDlg('dRel068')">✕</button>
+    <h3>Importar REL068</h3>
+
+    <div style="margin-top:10px;border:1.5px dashed var(--border-2);border-radius:12px;padding:16px;background:var(--surface-2)">
+      <p class="d">Usado quando o romaneio não aparece no REL033; cruza pelo número de romaneio e nome do distribuidor.</p>
+      <input type="file" id="rel068File" accept=".csv,.txt,.xlsx,.xls" style="margin-top:8px">
+      <p class="d" style="margin-top:10px">— ou cole o texto do REL068 abaixo —</p>
+      <textarea id="rel068Input" placeholder="Cole aqui as linhas copiadas do REL068 (com cabeçalho)..." style="width:100%;min-height:100px;margin-top:6px;border:1px solid var(--border-2);border-radius:12px;padding:10px;font-family:inherit;font-size:12.5px;resize:vertical"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn primary" id="btnRel068Save">Importar REL068</button>
+        <span class="tag" id="rel068Status" style="align-self:center"></span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn" id="btnRel068Clear">Limpar todos os dados</button>
+    </div>
+  </div>
+</div>
+
+<div class="dlg" id="dCfg">
+  <div class="box" style="max-width:520px">
+    <button class="close" onclick="closeDlg('dCfg')">✕</button>
+    <h3>Conexão com a planilha</h3>
+    <p class="d">Cole a URL/arquivo que devolve os dados em JSON. Salvo automaticamente neste navegador.</p>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input type="text" id="url" placeholder="https://...">
+      <button class="btn primary" id="btnSave" style="white-space:nowrap">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let API_URL = localStorage.getItem('tecmar_api_indicadores') || '';
+Chart.register(ChartDataLabels);
+Chart.defaults.set('plugins.datalabels', {display:false});
+let rawData = [];
+let mesAtual = 'TODOS';
+let charts = {};
+let usandoDemo = false;
+
+const demoData = (()=>{
+  const cidades=['MACEIÓ','RIO LARGO','ARAPIRACA','LITORAL SUL','LITORAL NORTE','SERTÃO','ALTO SERTÃO','MARECHAL','SANTANA DO IPANEMA'];
+  const motoristas=['Paulo Roberto Nunes','José Carlos da Silva','Ronaldo Barbosa','Marcelo Alves de Souza','Cícero Ferreira','Antônio Marcos Santos','Edvaldo Pereira Lima'];
+  const veiculos=['TOCO','TRUCK','CARRETA','VUC','3/4'];
+  const categorias=['FROTA','AGREGADO','DISTRIBUIDOR'];
+  const arr=[];
+  const romaneiosBase = Array.from({length:60},(_,i)=>String(4000+i));
+  for(let i=0;i<180;i++){
+    const dia=1+Math.floor(Math.random()*90);
+    const dt=new Date(2026,4,1); dt.setDate(dt.getDate()+dia);
+    arr.push({
+      Data: dt.toISOString().slice(0,10),
+      Valor: (80+Math.random()*600).toFixed(2),
+      Motorista: motoristas[Math.floor(Math.random()*motoristas.length)],
+      Local: cidades[Math.floor(Math.random()*cidades.length)],
+      'CHAPA/DISTRIBUIDOR': Math.random()>0.3?'CHAPA':'DISTRIBUIDOR',
+      'FROTA/AGREGADO/DISTRIBUIDOR': categorias[Math.floor(Math.random()*categorias.length)],
+      'TIPO DE VEÍCULO': veiculos[Math.floor(Math.random()*veiculos.length)],
+      'Romaneio': romaneiosBase[Math.floor(Math.random()*romaneiosBase.length)],
+    });
+  }
+  return arr;
+})();
+
+function parseData(str){
+  if(!str) return null;
+  str = String(str).trim();
+  let m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m){
+    let p1=+m[1], p2=+m[2], ano=+m[3];
+    let dia, mes;
+    if(p1>12) { dia=p1; mes=p2; }
+    else if(p2>12) { dia=p2; mes=p1; }
+    else { dia=p1; mes=p2; }
+    return new Date(ano, mes-1, dia);
+  }
+  if(/^\d{4,6}(\.\d+)?$/.test(str)){
+    const serial = parseFloat(str);
+    const base = new Date(1899,11,30);
+    return new Date(base.getTime() + serial*86400000);
+  }
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+function chaveMes(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'); }
+
+function pick(obj, ...keys){
+  const map={};
+  Object.keys(obj).forEach(k => {
+    const normKey = k.trim().toLowerCase().replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ');
+    map[normKey] = obj[k];
+  });
+  for(const k of keys){
+    const normSearchKey = k.trim().toLowerCase().replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ');
+    const v = map[normSearchKey];
+    if(v !== undefined && v !== null && v !== '') return v;
+  }
+  return null;
+}
+
+const ESTAB_SIGLA = {
+  '1':'SP','2':'PA','4':'PO','8':'RJ','9':'CX','11':'FS','12':'MA','13':'TE','14':'FO','15':'AR',
+  '16':'NA','18':'LD','21':'JP','29':'GRA','31':'CA','32':'IT','33':'CR','34':'FN','35':'ENN','36':'SL',
+  '37':'RSL','39':'BLU','45':'CAB','46':'JV','47':'GO','49':'CTB','50':'SSA','52':'UBA','53':'VIA','56':'PF',
+  '57':'EXT','58':'AM','82':'TF','83':'IRE','84':'JN','85':'LDE','86':'CLL','89':'MOS','90':'MG','94':'ITB',
+  '97':'IP','99':'CH','104':'GPI','105':'JCI','108':'MFI','110':'PGI','112':'FB','114':'LG','115':'BRR',
+  '116':'PF','118':'SJB','119':'BRQ','121':'PT2','122':'VDC','123':'IMP','125':'CLL',
+};
+
+function limparApostrofo(v){ return String(v ?? '').replace(/^'+/, '').trim(); }
+
+function extrairCtesComSigla(texto){
+  const out = [];
+  const regex = /([A-Za-zÀ-ÿ]{2,4})\s*-\s*(\d+)/g;
+  let m;
+  while((m = regex.exec(limparApostrofo(texto)))){
+    out.push({ sigla: m[1].toUpperCase(), numero: removerZerosEsquerda(m[2]) });
+  }
+  return out;
+}
+
+function removerZerosEsquerda(v){
+  const s = String(v ?? '').trim();
+  if (s === '') return '';
+  const semZeros = s.replace(/^0+/, '');
+  return semZeros === '' ? '0' : semZeros;
+}
+
+function extrairApenasNumeros(texto) {
+  if (!texto) return '';
+  return texto.toString().replace(/\D/g, '');
+}
+
+function normalizar(linhas){
+  return linhas.map(r=>({
+    data: pick(r,'data') || '',
+    valor: parseFloat(String(pick(r,'valor') ?? '0').toString().replace(',', '.')) || 0,
+    motorista: (pick(r,'motorista') || '—').toString().trim(),
+    cidade: (pick(r,'local','cidade') || '—').toString().toUpperCase().trim(),
+    tipo: (pick(r,'chapa/distribuidor','tipo') || 'CHAPA').toString().toUpperCase().trim(),
+    categoria: (pick(r,'frota/agregado/distribuidor','categoria') || '—').toString().toUpperCase().trim(),
+    tipoVeiculo: (pick(r,'tipo de veículo','tipo de veiculo','tipoveiculo') || '—').toString().toUpperCase().trim(),
+    romaneio: limparApostrofo(pick(r,'romaneio','chapa/distribuidor detalhado') || ''),
+    cte: limparApostrofo(pick(r,'cte','cte:') || ''),
+    nota: (pick(r,'nota','n° nf','nº nf','nota fiscal') || '').toString().trim(),
+    qtdChapa: parseFloat(pick(r,'qtd chapa','qtd. chapa','qtdchapa')) || null,
+    qtdDias: parseFloat(pick(r,'qtd dias','qtd. dias','qtddias')) || null,
+  }));
+}
+
+let rel068Data = [];
+let rel068PorRomaneio = {};
+let rel068PorCte = {};
+let rel092Data = [];
+let rel092PorRomaneio = {};
+
+function normRomaneio(v){
+  const limpo = limparApostrofo(v)
+    .replace(/\u00A0/g,' ')
+    .replace(/\./g,'')
+    .replace(/\s+/g,'')
+    .trim();
+  return /^\d+$/.test(limpo) ? removerZerosEsquerda(limpo) : limpo;
+}
+
+function acharLinhaCabecalho(linhas, palavrasChave){
+  for(let i=0;i<Math.min(linhas.length,6);i++){
+    const l = linhas[i].toLowerCase();
+    const temSep = l.includes(';') || l.includes(',') || l.includes('\t');
+    if(temSep && palavrasChave.some(k=>l.includes(k))) return i;
+  }
+  return 0;
+}
+
+function parseTextoTabular(texto, palavrasChave){
+  let linhas = texto.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
+  if(!linhas.length) return [];
+  linhas = linhas.slice(acharLinhaCabecalho(linhas, palavrasChave));
+  if(!linhas.length) return [];
+  const sep = linhas[0].includes('\t') ? '\t' : (linhas[0].includes(';') ? ';' : ',');
+  const cab = linhas[0].split(sep).map(h=>h.trim().replace(/^"(.*)"$/,'$1'));
+  return linhas.slice(1).map(l=>{
+    const cols = l.split(sep).map(c=>c.trim().replace(/^"(.*)"$/,'$1'));
+    const obj = {};
+    cab.forEach((h,i)=>{ obj[h] = cols[i] !== undefined ? cols[i] : ''; });
+    return obj;
+  });
+}
+
+async function lerArquivoTabular(file, palavrasChave){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array', raw:false});
+  const aba = wb.Sheets[wb.SheetNames[0]];
+  const linhasArr = XLSX.utils.sheet_to_json(aba, {header:1, defval:'', raw:false});
+  if(!linhasArr.length) return [];
+  const idx = acharLinhaCabecalho(linhasArr.map(l=>l.join(';')), palavrasChave);
+  const cab = (linhasArr[idx] || []).map(h=>String(h).trim());
+  return linhasArr.slice(idx+1).filter(l=>l.some(c=>String(c).trim()!=='')).map(l=>{
+    const obj = {};
+    cab.forEach((h,i)=>{ obj[h] = l[i] !== undefined ? l[i] : ''; });
+    return obj;
+  });
+}
+
+// Leitor "bruto": mantém cabeçalho e linhas como arrays (preserva posição da coluna).
+// Necessário para planilhas como o REL033, que repete o cabeçalho "Número"
+// em mais de uma coluna (romaneio e CTE) — por nome isso ficaria ambíguo.
+async function lerArquivoTabularBruto(file, palavrasChave){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array', raw:false});
+  const aba = wb.Sheets[wb.SheetNames[0]];
+  const linhasArr = XLSX.utils.sheet_to_json(aba, {header:1, defval:'', raw:false});
+  if(!linhasArr.length) return {headers:[], rows:[]};
+  const idx = acharLinhaCabecalho(linhasArr.map(l=>l.join(';')), palavrasChave);
+  const headers = (linhasArr[idx] || []).map(h=>String(h).trim());
+  const rows = linhasArr.slice(idx+1).filter(l=>l.some(c=>String(c).trim()!==''));
+  return {headers, rows};
+}
+
+function parseValorBR(v){
+  if (typeof v === 'number') return v;
+  return parseFloat(String(v ?? '0').replace(/\./g,'').replace(',', '.').replace(/[^0-9.-]/g,'')) || 0;
+}
+
+function normalizarRel068(linhas){
+  return linhas.map(r=>({
+    cte: removerZerosEsquerda(limparApostrofo(pick(r,'cte','nr conhecimento','n° conhecimento','nº conhecimento','conhecimento','numero cte','número cte','documento') || '')),
+    romaneio: normRomaneio(pick(r,'romaneio')),
+    distribuidor: (pick(r,'nome destinatário','nome destinatario','distribuidor','cliente','destinatario','destinatário') || '').toString().trim().toUpperCase(),
+    valorFrete: parseValorBR(pick(r,'vl frete','valor frete','frete','valor do frete','vlr frete')),
+    notas: (pick(r,'notas fiscais','nota fiscal','notas','nota') || '').toString().trim(),
+    estab: removerZerosEsquerda((pick(r,'estabel destino','estabelecimento') || '').toString().trim().replace(/\.0+$/,'')),
+  })).filter(r=>r.romaneio);
+}
+
+function normalizarCabecalho(v){
+  return String(v ?? '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .trim().toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+// REL033: cada romaneio ocupa VÁRIAS linhas (uma por CTE), e o valor de frete
+// (coluna "Valor F") vem repetido em todas elas — é o TOTAL do romaneio, não
+// um valor por linha. Além disso o cabeçalho "Número" se repete (romaneio na
+// 1ª ocorrência, CTE na ocorrência depois da coluna de frete), então a
+// extração é feita por POSIÇÃO da coluna, não pelo nome.
+function normalizarRel092(headers, rows){
+  const h = headers.map(normalizarCabecalho);
+  const idxNumero = [];
+  h.forEach((nome, i) => { if(nome === 'numero' || nome === 'nº' || nome === 'n°') idxNumero.push(i); });
+
+  let idxValorFrete = h.findIndex(nome => nome === 'valor f' || nome === 'valor frete' || nome === 'vl frete' || nome === 'vlr frete');
+  if(idxValorFrete === -1) idxValorFrete = h.findIndex(nome => nome.startsWith('valor f'));
+  if(idxValorFrete === -1) idxValorFrete = h.findIndex(nome => nome.includes('frete'));
+
+  let idxRomaneio, idxCte;
+  if(idxNumero.length >= 2 && idxValorFrete !== -1){
+    idxRomaneio = idxNumero.filter(i => i < idxValorFrete)[0] ?? idxNumero[0];
+    idxCte = idxNumero.filter(i => i > idxValorFrete).pop() ?? idxNumero[idxNumero.length - 1];
+  } else if(idxNumero.length === 1){
+    idxRomaneio = idxNumero[0];
+    idxCte = h.findIndex(nome => nome.includes('cte') || nome.includes('conhecimento'));
+  } else {
+    idxRomaneio = h.findIndex(nome => nome.includes('romaneio'));
+    idxCte = h.findIndex(nome => nome.includes('cte') || nome.includes('conhecimento'));
+  }
+  const idxMotorista = h.findIndex(nome => nome === 'motorista');
+
+  return rows.map(row => ({
+    romaneio: normRomaneio(idxRomaneio > -1 ? row[idxRomaneio] : ''),
+    motorista: ((idxMotorista > -1 ? row[idxMotorista] : '') || '').toString().trim().toUpperCase(),
+    tipo: '',
+    valorFrete: idxValorFrete > -1 ? parseValorBR(row[idxValorFrete]) : 0,
+    cte: idxCte > -1 ? removerZerosEsquerda(limparApostrofo(row[idxCte] || '')) : '',
+  })).filter(r => r.romaneio);
+}
+
+function extrairRomaneios(texto){
+  const achados = String(texto||'').match(/\d{4,7}/g) || [];
+  return [...new Set(achados.map(removerZerosEsquerda))];
+}
+
+function normCte(v){
+  return removerZerosEsquerda(extrairApenasNumeros(v));
+}
+
+let reconciliacaoCache = {};
+function limparCacheReconciliacao(){ reconciliacaoCache = {}; }
+
+function indexarRel068(){
+  rel068PorRomaneio = {};
+  rel068PorCte = {};
+  rel068Data.forEach(r=>{
+    (rel068PorRomaneio[r.romaneio] ||= []).push(r);
+    const chave = normCte(r.cte);
+    if(chave) (rel068PorCte[chave] ||= []).push(r);
+  });
+  limparCacheReconciliacao();
+}
+
+function indexarRel092(){
+  rel092PorRomaneio = {};
+  rel092Data.forEach(r => {
+    (rel092PorRomaneio[r.romaneio] ||= []).push(r);
+  });
+  limparCacheReconciliacao();
+}
+
+function carregarRel068Salvo(){
+  try{ rel068Data = JSON.parse(localStorage.getItem('tecmar_rel068_data')||'[]'); }catch(e){ rel068Data = []; }
+  try{ rel092Data = JSON.parse(localStorage.getItem('tecmar_rel092_data')||'[]'); }catch(e){ rel092Data = []; }
+  indexarRel068(); indexarRel092();
+  atualizarStatusRel068();
+}
+
+function atualizarStatusRel068(){
+  const el = document.getElementById('rel068Status');
+  const el2 = document.getElementById('rel092Status');
+  if(el) el.textContent = rel068Data.length ? rel068Data.length+' CTEs (REL068) carregados' : 'Nenhum dado importado ainda';
+  if(el2) el2.textContent = rel092Data.length ? rel092Data.length+' romaneios (REL033/Rápido) carregados' : 'Nenhum arquivo importado ainda';
+}
+
+function abrirModalRel033(){
+  document.getElementById('rel092File').value = '';
+  atualizarStatusRel068();
+  openDlg('dRel033');
+}
+
+function abrirModalRel068(){
+  document.getElementById('rel068Input').value = '';
+  document.getElementById('rel068File').value = '';
+  atualizarStatusRel068();
+  openDlg('dRel068');
+}
+
+document.getElementById('btnRel033').addEventListener('click', abrirModalRel033);
+document.getElementById('btnRel068').addEventListener('click', abrirModalRel068);
+
+function salvarRel068(novas){
+  const mapa = {};
+  rel068Data.forEach(r=>{ mapa[(r.cte && r.cte !== '0') ? r.cte : Math.random()] = r; });
+  novas.forEach(r=>{ mapa[(r.cte && r.cte !== '0') ? r.cte : Math.random()] = r; });
+  rel068Data = Object.values(mapa);
+  localStorage.setItem('tecmar_rel068_data', JSON.stringify(rel068Data));
+  indexarRel068(); atualizarStatusRel068(); montarTudo();
+}
+
+function salvarRel092(novas){
+  // REL033 é sempre um snapshot completo — substitui os dados antigos em vez
+  // de acumular (senão importações repetidas ficam com lixo de versões
+  // anteriores misturado, e a reconciliação pode pegar a linha errada).
+  rel092Data = novas;
+  localStorage.setItem('tecmar_rel092_data', JSON.stringify(rel092Data));
+  indexarRel092();
+  atualizarStatusRel068();
+  montarTudo();
+}
+
+const PALAVRAS_REL068 = ['romaneio','conhecimento','frete','destinat'];
+const PALAVRAS_REL092 = ['número','numero','motorista','frete','placa'];
+
+document.getElementById('rel092File').addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const statusEl = document.getElementById('rel092Status');
+  statusEl.textContent = 'Lendo arquivo...';
+  try{
+    const {headers, rows} = await lerArquivoTabularBruto(file, PALAVRAS_REL092);
+    const novas = normalizarRel092(headers, rows);
+    if(!novas.length){ statusEl.textContent = 'Não encontrei a coluna de romaneio — confira o cabeçalho.'; return; }
+    const comFrete = novas.filter(r => r.valorFrete > 0).length;
+    const comCte = novas.filter(r => r.cte).length;
+    salvarRel092(novas);
+    if(comFrete === 0){
+      statusEl.textContent = `${novas.length} linhas carregadas, mas nenhuma com valor de frete — confira se a coluna "Valor F" está correta.`;
+      statusEl.style.color = 'var(--red)';
+    } else if(comCte === 0){
+      statusEl.textContent = `${novas.length} linhas carregadas com frete, mas sem número de CTE identificado — a reconciliação por CTE não vai funcionar.`;
+      statusEl.style.color = 'var(--red)';
+    } else {
+      statusEl.textContent = `${novas.length} linhas (REL033) carregadas — ${comFrete} com frete, ${comCte} com CTE.`;
+      statusEl.style.color = '';
+    }
+  }catch(err){ console.error(err); statusEl.textContent = 'Erro ao ler o arquivo: '+err.message; }
+});
+
+document.getElementById('rel068File').addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const statusEl = document.getElementById('rel068Status');
+  statusEl.textContent = 'Lendo arquivo...';
+  try{
+    const linhasBrutas = await lerArquivoTabular(file, PALAVRAS_REL068);
+    const novas = normalizarRel068(linhasBrutas);
+    if(!novas.length){ statusEl.textContent = 'Nenhum CTE com romaneio preenchido encontrado neste arquivo.'; return; }
+    salvarRel068(novas);
+  }catch(err){ console.error(err); statusEl.textContent = 'Erro ao ler o arquivo: '+err.message; }
+});
+
+document.getElementById('btnRel068Save').addEventListener('click', ()=>{
+  const texto = document.getElementById('rel068Input').value;
+  if(!texto.trim()){ return; }
+  const linhasBrutas = parseTextoTabular(texto, PALAVRAS_REL068);
+  const novas = normalizarRel068(linhasBrutas);
+  salvarRel068(novas);
+  document.getElementById('rel068Input').value = '';
+});
+function limparFretesImportados(){
+  rel068Data = []; rel068PorRomaneio = {};
+  rel092Data = []; rel092PorRomaneio = {};
+  rel068PorCte = {};
+  limparCacheReconciliacao();
+  localStorage.removeItem('tecmar_rel068_data');
+  localStorage.removeItem('tecmar_rel092_data');
+  atualizarStatusRel068();
+  montarTudo();
+}
+document.getElementById('btnRel068Clear').addEventListener('click', limparFretesImportados);
+document.getElementById('btnRel033Clear').addEventListener('click', limparFretesImportados);
+
+function reconciliarFreteRomaneio(romaneioAlvo) {
+  const targetRomaneioStr = normRomaneio(romaneioAlvo);
+
+  if (reconciliacaoCache[targetRomaneioStr]) return reconciliacaoCache[targetRomaneioStr];
+
+  // 1. REL033 é a fonte da verdade: frete total (1ª linha) + lista de CTEs esperados
+  const linhasControle = rel092PorRomaneio[targetRomaneioStr] || [];
+  const valorFreteAlvo = linhasControle.length ? parseValorBR(linhasControle[0].valorFrete) : 0;
+  const ctesEsperados = new Set(
+    linhasControle.map(row => normCte(row.cte)).filter(Boolean)
+  );
+
+  // 2. Soma os CTEs do REL068 que já aparecem sob o mesmo romaneio
+  let freteCalculado = 0;
+  const ctesProcessados = new Set();
+  const ctesDetalhados = [];
+
+  (rel068PorRomaneio[targetRomaneioStr] || []).forEach(row => {
+    const cteNum = normCte(row.cte);
+    if (ctesEsperados.size === 0 || ctesEsperados.has(cteNum)) {
+      freteCalculado += Number(row.valorFrete || 0);
+      if (cteNum) ctesProcessados.add(cteNum);
+      ctesDetalhados.push({
+        cte: row.cte,
+        valor: Number(row.valorFrete || 0),
+        romaneioOrigem: targetRomaneioStr,
+        recuperadoBuscaGlobal: false
+      });
+    }
+  });
+
+  // 3. Busca global pelos CTEs que faltam (podem estar sob outro romaneio no REL068)
+  if (ctesEsperados.size > 0 && ctesProcessados.size < ctesEsperados.size) {
+    ctesEsperados.forEach(cteNum => {
+      if (ctesProcessados.has(cteNum)) return;
+      const candidatos = rel068PorCte[cteNum];
+      if (candidatos && candidatos.length) {
+        const linha = candidatos[0];
+        freteCalculado += Number(linha.valorFrete || 0);
+        ctesProcessados.add(cteNum);
+        ctesDetalhados.push({
+          cte: linha.cte,
+          valor: Number(linha.valorFrete || 0),
+          romaneioOrigem: linha.romaneio,
+          recuperadoBuscaGlobal: true
+        });
+      }
+    });
+  }
+
+  // 4. Valida se o frete reconciliado bate com o valor de controle do REL033
+  const diferenca = Math.abs(freteCalculado - valorFreteAlvo);
+  const bateuValor = valorFreteAlvo > 0 ? (diferenca < 0.01) : (freteCalculado > 0);
+
+  const resultado = {
+    romaneio: targetRomaneioStr,
+    freteAlvo: valorFreteAlvo,
+    freteSomadoREL068: Number(freteCalculado.toFixed(2)),
+    // valor final a exibir: o total do REL033 é a fonte da verdade; só usa a
+    // soma do REL068 quando o romaneio não tem registro no REL033.
+    freteFinal: valorFreteAlvo > 0 ? valorFreteAlvo : Number(freteCalculado.toFixed(2)),
+    diferenca: Number(diferenca.toFixed(2)),
+    sucesso: bateuValor,
+    ctesEncontrados: Array.from(ctesProcessados),
+    ctesFaltantes: Array.from(ctesEsperados).filter(c => !ctesProcessados.has(c)),
+    detalhes: ctesDetalhados
+  };
+
+  reconciliacaoCache[targetRomaneioStr] = resultado;
+  return resultado;
+}
+
+function freteDoRomaneio(d){
+  if(d.tipo === 'DISTRIBUIDOR'){
+    const ctesRef = extrairCtesComSigla(d.cte || d.romaneio);
+    if(ctesRef.length){
+      const romaneiosResolvidos = new Set();
+      ctesRef.forEach(({sigla, numero})=>{
+        const candidatos = rel068PorCte[numero];
+        if(!candidatos || !candidatos.length) return;
+        const bateEstab = candidatos.find(c => ESTAB_SIGLA[c.estab] === sigla);
+        const linha = bateEstab || candidatos[0];
+        if(linha && linha.romaneio) romaneiosResolvidos.add(linha.romaneio);
+      });
+      if(romaneiosResolvidos.size){
+        const nomeMotorista = (d.motorista||'').toUpperCase();
+        let total = 0, qtdCtes = 0, ctesJaContados = new Set();
+        romaneiosResolvidos.forEach(rom=>{
+          const resRec = reconciliarFreteRomaneio(rom);
+          if(resRec.freteFinal > 0){
+            total += resRec.freteFinal;
+            qtdCtes += resRec.detalhes.length || 1;
+          } else {
+            const ctes = rel068PorRomaneio[rom] || [];
+            const filtrados = ctes.filter(c => c.distribuidor && (nomeMotorista.includes(c.distribuidor) || c.distribuidor.includes(nomeMotorista)));
+            const alvo = filtrados.length ? filtrados : ctes;
+            alvo.forEach(c=>{
+              if(!ctesJaContados.has(c.cte)){ total += c.valorFrete; qtdCtes++; ctesJaContados.add(c.cte); }
+            });
+          }
+        });
+        if(qtdCtes){
+          const chave = [...romaneiosResolvidos].sort().join('+');
+          return { total, fonte:'rel068', qtdCtes, romaneioResolvido: chave };
+        }
+      }
+    }
+  }
+
+  const romaneios = extrairRomaneios(d.romaneio || d.cte);
+  if(!romaneios.length) return null;
+
+  let total = 0, qtdCtes = 0, fonte = null, achouAlgum = false;
+  romaneios.forEach(rom=>{
+    // REL033 é a fonte da verdade: usa o valor único de controle (freteAlvo),
+    // nunca soma linha a linha (o REL033 repete o mesmo total em todas as
+    // linhas do romaneio, uma por CTE).
+    const resRec = reconciliarFreteRomaneio(rom);
+    if(resRec.freteFinal > 0){
+      total += resRec.freteFinal;
+      qtdCtes += resRec.detalhes.length || 1;
+      fonte = resRec.freteAlvo > 0 ? 'romaneios' : 'rel068';
+      achouAlgum = true;
+    } else {
+      const ctes = rel068PorRomaneio[rom];
+      if(ctes && ctes.length){
+        total += ctes.reduce((s,c)=>s+c.valorFrete,0);
+        qtdCtes += ctes.length;
+        fonte = fonte||'rel068';
+        achouAlgum = true;
+      }
+    }
+  });
+  if(!achouAlgum) return null;
+  return { total, fonte, qtdCtes, romaneioResolvido: [...romaneios].sort().join('+') };
+}
+
+function renderFrete(arr){
+  const comFrete = arr.filter(d=>d.romaneio || d.cte).map(d=>{
+    const f = freteDoRomaneio(d);
+    return f ? {...d, frete: f.total, fonte: f.fonte, romaneioResolvido: f.romaneioResolvido} : null;
+  }).filter(Boolean);
+
+  const el = document.getElementById('freteTabWrap');
+  const tag = document.getElementById('tagFrete');
+
+  if(!rel068Data.length && !rel092Data.length){
+    tag.textContent = 'Nada importado';
+    el.innerHTML = '<div class="empty"><p>Importe o relatório REL033 ou cole os dados do Excel (botão no topo) para ver o comparativo entre frete e descarga.</p></div>';
+    return;
+  }
+  if(!comFrete.length){
+    tag.textContent = '0 romaneios cruzados';
+    el.innerHTML = '<div class="empty"><p>Nenhum romaneio/CTE deste recorte foi encontrado nos dados importados. Confira se os números batem nas planilhas.</p></div>';
+    return;
+  }
+
+  tag.textContent = comFrete.length+' registros cruzados';
+  const chavesUnicas = new Set();
+  let totalFrete = 0;
+  comFrete.forEach(d=>{ if(!chavesUnicas.has(d.romaneioResolvido)){ totalFrete += d.frete; chavesUnicas.add(d.romaneioResolvido); } });
+  const totalDescarga = comFrete.reduce((s,d)=>s+d.valor,0);
+
+  const contagemPorChave = {};
+  comFrete.forEach(d=>{ contagemPorChave[d.romaneioResolvido] = (contagemPorChave[d.romaneioResolvido]||0)+1; });
+
+  const linhas = comFrete.slice().sort((a,b)=>b.frete-a.frete).slice(0,60).map(d=>{
+    const pct = d.frete ? (d.valor/d.frete*100) : null;
+    const estourou = pct!==null && pct>100;
+    const lancadoLabel = d.tipo==='DISTRIBUIDOR' ? (d.cte || d.romaneio || '—') : (d.romaneio||'—');
+    const ehComplemento = contagemPorChave[d.romaneioResolvido] > 1;
+    return `<tr>
+      <td>${lancadoLabel}<br><span style="color:var(--text-2);font-size:10.5px">romaneio ${d.romaneioResolvido}${ehComplemento?' · complemento':''}</span></td>
+      <td>${d.motorista}</td>
+      <td>${d.tipo}</td>
+      <td style="text-align:right">${fmtBRL(d.frete)}</td>
+      <td style="text-align:right">${fmtBRL(d.valor)}</td>
+      <td style="text-align:right"><span class="pill ${estourou?'warn':'ok'}">${pct!==null?pct.toFixed(1)+'%':'—'}</span></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<div style="overflow:auto"><table>
+    <thead><tr><th>Nº lançado</th><th>Motorista/Distribuidor</th><th>Tipo</th><th style="text-align:right">Frete</th><th style="text-align:right">Descarga paga</th><th style="text-align:right">% Descarga/Frete</th></tr></thead>
+    <tbody>${linhas}</tbody>
+    <tfoot><tr><td colspan="3">Total (${comFrete.length} registros)</td><td style="text-align:right">${fmtBRL(totalFrete)}</td><td style="text-align:right">${fmtBRL(totalDescarga)}</td><td style="text-align:right">${totalFrete?(totalDescarga/totalFrete*100).toFixed(1)+'%':'—'}</td></tr></tfoot>
+  </table></div>`;
+}
+
+function openDlg(id){document.getElementById(id).classList.add('open');}
+function closeDlg(id){document.getElementById(id).classList.remove('open');}
+document.getElementById('btnCfg').addEventListener('click', ()=>{
+  document.getElementById('url').value = API_URL;
+  openDlg('dCfg');
+});
+document.getElementById('btnSave').addEventListener('click', ()=>{
+  const url = document.getElementById('url').value.trim();
+  API_URL = url; localStorage.setItem('tecmar_api_indicadores', url);
+  closeDlg('dCfg');
+  carregarDados();
+});
+document.getElementById('btnUp').addEventListener('click', carregarDados);
+
+function setStatus(txt, tipo){
+  document.getElementById('stx').textContent = txt;
+  document.getElementById('dot').className = 'dot'+(tipo?(' '+tipo):'');
+}
+
+async function carregarDados(){
+  const icon=document.getElementById('iconRefresh'); icon.classList.add('spin');
+  document.getElementById('bdemo').style.display='none';
+
+  if(!API_URL){
+    usandoDemo = true;
+    rawData = normalizar(demoData);
+    setStatus('Exibindo dados de demonstração — configure a conexão com a planilha.', '');
+    document.getElementById('bdemo').style.display='inline-block';
+    icon.classList.remove('spin');
+    montarTudo();
+    return;
+  }
+
+  setStatus('Buscando dados da planilha...', '');
+  try{
+    const resp = await fetch(API_URL, {cache:'no-store'});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const json = await resp.json();
+    const linhas = Array.isArray(json) ? json : (json.value || json.rows || []);
+    if(!linhas.length) throw new Error('Nenhuma linha encontrada no retorno.');
+    usandoDemo = false;
+    rawData = normalizar(linhas);
+    setStatus(`Atualizado agora · ${rawData.length} registros carregados`, 'ok');
+  }catch(e){
+    console.error(e);
+    setStatus('Erro ao buscar dados: '+e.message+'. Exibindo demonstração.', 'err');
+    usandoDemo = true;
+    rawData = normalizar(demoData);
+    document.getElementById('bdemo').style.display='inline-block';
+  }finally{
+    icon.classList.remove('spin');
+    montarTudo();
+  }
+}
+
+function popularMeses(){
+  const sel=document.getElementById('mes'); const atual=sel.value;
+  const nomesMes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const meses=[...new Set(rawData.map(d=>{
+    const dt=parseData(d.data); if(!dt) return null;
+    return chaveMes(dt);
+  }).filter(Boolean))].sort();
+  sel.innerHTML='<option value="TODOS">Todos os meses</option>'+meses.map(m=>{
+    const [a,mm]=m.split('-'); return `<option value="${m}">${nomesMes[parseInt(mm)-1]}/${a}</option>`;
+  }).join('');
+  sel.value = meses.includes(atual)?atual:'TODOS';
+}
+document.getElementById('mes').addEventListener('change', e=>{mesAtual=e.target.value; montarTudo();});
+
+function filtrarMes(arr){
+  if(mesAtual==='TODOS') return arr;
+  return arr.filter(d=>{
+    const dt=parseData(d.data); if(!dt) return false;
+    return chaveMes(dt)===mesAtual;
+  });
+}
+
+function fmtBRL(n){return 'R$ '+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function agrupar(arr,campo){const m={};arr.forEach(d=>{m[d[campo]]=(m[d[campo]]||0)+d.valor});return m;}
+function contar(arr,campo){const m={};arr.forEach(d=>{m[d[campo]]=(m[d[campo]]||0)+1});return m;}
+function topDe(mapa){const a=Object.entries(mapa).sort((x,y)=>y[1]-x[1]);return a.length?a[0]:null;}
+
+function montarTudo(){
+  popularMeses();
+  const arr = filtrarMes(rawData);
+  renderKPIs(arr);
+  renderCharts(arr);
+  renderMotoristas(arr);
+  renderRankings(arr);
+  renderSaude(arr);
+  renderComparativoMes();
+  renderIntervalos(arr);
+  renderComplementos(arr);
+  renderFrete(arr);
+}
+
+function renderKPIs(arr){
+  const totalGeral = arr.reduce((s,d)=>s+d.valor,0);
+  const chapa = arr.filter(d=>d.tipo==='CHAPA');
+  const porMotoristaChapa = agrupar(chapa,'motorista');
+  const porCidadeChapa = agrupar(chapa,'cidade');
+  const fluxoCidade = contar(arr,'cidade');
+  const topMot = topDe(porMotoristaChapa);
+  const topCidChapa = topDe(porCidadeChapa);
+  const topFluxo = topDe(fluxoCidade);
+
+  const porCategoria = agrupar(arr,'categoria');
+  const totalFrota = porCategoria['FROTA']||0;
+  const totalAgregado = porCategoria['AGREGADO']||0;
+  const totalDistCategoria = porCategoria['DISTRIBUIDOR']||0;
+  const porTipo = agrupar(arr,'tipo');
+  const totalTipoChapa = porTipo['CHAPA']||0;
+  const totalTipoDist = porTipo['DISTRIBUIDOR']||0;
+  const totalChapaAgregado = arr.filter(d=>d.tipo==='CHAPA' && d.categoria==='AGREGADO').reduce((s,d)=>s+d.valor,0);
+
+  const temFrete = rel068Data.length || rel092Data.length;
+  let totalFreteKpi = 0, qtdRomaneiosFrete = 0;
+  let freteChapa = 0, pagoChapaComFrete = 0, freteDist = 0, pagoDistComFrete = 0;
+  const chavesJaContadasTotal = new Set(), chavesJaContadasChapa = new Set(), chavesJaContadasDist = new Set();
+  if(temFrete){
+    arr.filter(d=>d.romaneio || d.cte).forEach(d=>{
+      const f = freteDoRomaneio(d);
+      if(f){
+        qtdRomaneiosFrete++;
+        if(!chavesJaContadasTotal.has(f.romaneioResolvido)){ totalFreteKpi += f.total; chavesJaContadasTotal.add(f.romaneioResolvido); }
+        if(d.tipo === 'CHAPA'){
+          pagoChapaComFrete += d.valor;
+          if(!chavesJaContadasChapa.has(f.romaneioResolvido)){ freteChapa += f.total; chavesJaContadasChapa.add(f.romaneioResolvido); }
+        }
+        if(d.tipo === 'DISTRIBUIDOR'){
+          pagoDistComFrete += d.valor;
+          if(!chavesJaContadasDist.has(f.romaneioResolvido)){ freteDist += f.total; chavesJaContadasDist.add(f.romaneioResolvido); }
+        }
+      }
+    });
+  }
+  const pctChapaFrete = freteChapa ? (pagoChapaComFrete/freteChapa*100) : null;
+  const pctDistFrete = freteDist ? (pagoDistComFrete/freteDist*100) : null;
+
+  document.getElementById('kpis').innerHTML = `
+    ${temFrete ? `<div class="kpi"><span class="k">Custo com Frete</span><span class="v">${fmtBRL(totalFreteKpi)}</span><span class="s">${qtdRomaneiosFrete} registros cruzados</span></div>` : ''}
+    ${temFrete && pctChapaFrete!==null ? `<div class="kpi"><span class="k">Chapa × Frete (%)</span><span class="v">${pctChapaFrete.toFixed(1)}%</span><span class="s">${fmtBRL(pagoChapaComFrete)} pago vs ${fmtBRL(freteChapa)} de frete</span></div>` : ''}
+    ${temFrete && pctDistFrete!==null ? `<div class="kpi"><span class="k">Distribuidor × Frete (%)</span><span class="v">${pctDistFrete.toFixed(1)}%</span><span class="s">${fmtBRL(pagoDistComFrete)} pago vs ${fmtBRL(freteDist)} de frete</span></div>` : ''}
+    <div class="kpi p"><span class="k">Total de Descargas</span><span class="v">${fmtBRL(totalGeral)}</span><span class="s">${arr.length} descargas · ticket médio ${fmtBRL(arr.length?totalGeral/arr.length:0)}</span></div>
+    <div class="kpi"><span class="k">Motorista · Maior Gasto Chapa</span><span class="v">${topMot?topMot[0]:'—'}</span><span class="s">${topMot?fmtBRL(topMot[1])+' em chapa':'sem dados'}</span></div>
+    <div class="kpi a"><span class="k">Cidade · Maior Gasto Chapa</span><span class="v">${topCidChapa?topCidChapa[0]:'—'}</span><span class="s">${topCidChapa?fmtBRL(topCidChapa[1])+' em chapa':'sem dados'}</span></div>
+    <div class="kpi u"><span class="k">Cidade · Maior Fluxo</span><span class="v">${topFluxo?topFluxo[0]:'—'}</span><span class="s">${topFluxo?topFluxo[1]+' solicitações':'sem dados'}</span></div>
+    <div class="kpi p"><span class="k">Custo · Frota (motorista)</span><span class="v">${fmtBRL(totalFrota)}</span><span class="s">${totalGeral?(totalFrota/totalGeral*100).toFixed(1):'0'}% do total</span></div>
+    <div class="kpi u"><span class="k">Custo · Agregado (motorista)</span><span class="v">${fmtBRL(totalAgregado)}</span><span class="s">${totalGeral?(totalAgregado/totalGeral*100).toFixed(1):'0'}% do total</span></div>
+    <div class="kpi a"><span class="k">Custo · Distribuidor (motorista)</span><span class="v">${fmtBRL(totalDistCategoria)}</span><span class="s">${totalGeral?(totalDistCategoria/totalGeral*100).toFixed(1):'0'}% do total</span></div>
+    <div class="kpi"><span class="k">Custo · Chapa (Geral)</span><span class="v">${fmtBRL(totalTipoChapa)}</span><span class="s">${totalGeral?(totalTipoChapa/totalGeral*100).toFixed(1):'0'}% do total</span></div>
+    <div class="kpi"><span class="k">Custo · Distribuidor (Geral)</span><span class="v">${fmtBRL(totalTipoDist)}</span><span class="s">${totalGeral?(totalTipoDist/totalGeral*100).toFixed(1):'0'}% do total</span></div>
+    <div class="kpi"><span class="k">Custo · Chapa + Agregado</span><span class="v">${fmtBRL(totalChapaAgregado)}</span><span class="s">Chapa pago a motorista Agregado</span></div>
+  `;
+}
+
+function renderCharts(arr){
+  _ultimoArrFiltrado = arr;
+  const chapa = arr.filter(d=>d.tipo==='CHAPA');
+
+  const cidadeChapa = Object.entries(agrupar(chapa,'cidade')).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  chartBarH('c1', cidadeChapa.map(x=>x[0]), cidadeChapa.map(x=>x[1]), '#00A884');
+
+  const fluxoCidade = Object.entries(contar(arr,'cidade')).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  chartBarH('c2', fluxoCidade.map(x=>x[0]), fluxoCidade.map(x=>x[1]), '#16305c', true);
+
+  const porMes={};
+  rawData.forEach(d=>{
+    const dt=parseData(d.data); if(!dt) return;
+    const chave=chaveMes(dt);
+    porMes[chave]=(porMes[chave]||0)+d.valor;
+  });
+  const nomesMes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mesesOrd=Object.keys(porMes).sort();
+  chartLine('c3', mesesOrd.map(m=>{const [a,mm]=m.split('-');return nomesMes[parseInt(mm)-1]+'/'+a;}), mesesOrd.map(m=>porMes[m]));
+
+  const porTipo=agrupar(arr,'tipo');
+  chartDonut('c4', Object.keys(porTipo), Object.values(porTipo), ['#00A884','#16305c','#f0a500']);
+
+  const porCat=agrupar(arr,'categoria');
+  chartDonut('c5', Object.keys(porCat), Object.values(porCat), ['#00A884','#16305c','#f0a500','#7c5cff']);
+
+  const porVeic = Object.entries(agrupar(arr.filter(d=>d.tipo===filtroVeiculoTipo),'tipoVeiculo')).sort((a,b)=>b[1]-a[1]);
+  chartBarH('c6', porVeic.map(x=>x[0]), porVeic.map(x=>x[1]), filtroVeiculoTipo==='CHAPA'?'#00A884':'#f0a500');
+  atualizarBotoesVeiculo();
+}
+let filtroVeiculoTipo = 'CHAPA';
+let _ultimoArrFiltrado = [];
+function setFiltroVeiculo(tipo){
+  filtroVeiculoTipo = tipo;
+  const porVeic = Object.entries(agrupar(_ultimoArrFiltrado.filter(d=>d.tipo===filtroVeiculoTipo),'tipoVeiculo')).sort((a,b)=>b[1]-a[1]);
+  chartBarH('c6', porVeic.map(x=>x[0]), porVeic.map(x=>x[1]), filtroVeiculoTipo==='CHAPA'?'#00A884':'#f0a500');
+  atualizarBotoesVeiculo();
+}
+function atualizarBotoesVeiculo(){
+  document.getElementById('fVeicChapa').classList.toggle('primary', filtroVeiculoTipo==='CHAPA');
+  document.getElementById('fVeicDist').classList.toggle('primary', filtroVeiculoTipo==='DISTRIBUIDOR');
+}
+
+function baseFont(){return {family:"'Nunito',sans-serif", weight:'700', size:11};}
+
+function chartBarH(id, labels, values, cor, isQtd){
+  const ctx=document.getElementById(id).getContext('2d');
+  if(charts[id]) charts[id].destroy();
+  charts[id]=new Chart(ctx,{
+    type:'bar',
+    data:{labels, datasets:[{data:values, backgroundColor:cor, borderRadius:8, maxBarThickness:26}]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      layout:{padding:{right:36}},
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          display:true, anchor:'end', align:'right', color:'#0a2e5c', font:{family:"'Nunito',sans-serif",weight:'800',size:11},
+          formatter:v=> isQtd ? v : fmtBRL(v)
+        }
+      },
+      scales:{
+        x:{beginAtZero:true, grid:{color:'#eef1f6'}, ticks:{font:baseFont()}},
+        y:{grid:{display:false}, ticks:{font:baseFont()}}
+      }
+    }
+  });
+}
+function chartLine(id, labels, values){
+  const ctx=document.getElementById(id).getContext('2d');
+  if(charts[id]) charts[id].destroy();
+  const grad=ctx.createLinearGradient(0,0,0,220);
+  grad.addColorStop(0,'rgba(0,168,132,.35)'); grad.addColorStop(1,'rgba(0,168,132,0)');
+  charts[id]=new Chart(ctx,{
+    type:'line',
+    data:{labels, datasets:[{data:values, borderColor:'#00A884', backgroundColor:grad, fill:true, tension:.35, pointBackgroundColor:'#00A884', pointRadius:4, borderWidth:3}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:26}},
+      plugins:{
+        legend:{display:false},
+        datalabels:{display:true, align:'top', anchor:'end', color:'#0a2e5c', font:{family:"'Nunito',sans-serif",weight:'800',size:10.5}, formatter:v=>fmtBRL(v)}
+      },
+      scales:{
+        y:{beginAtZero:false, grid:{color:'#eef1f6'}, ticks:{font:baseFont(), callback:v=>fmtBRL(v)}},
+        x:{grid:{display:false}, ticks:{font:baseFont()}}
+      }
+    }
+  });
+}
+function chartDonut(id, labels, values, cores){
+  const ctx=document.getElementById(id).getContext('2d');
+  if(charts[id]) charts[id].destroy();
+  charts[id]=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels, datasets:[{data:values, backgroundColor:cores, borderWidth:3, borderColor:'#fff'}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{
+        legend:{position:'bottom', labels:{font:baseFont(), boxWidth:10, padding:14}},
+        datalabels:{
+          display:true, color:'#fff', font:{family:"'Nunito',sans-serif",weight:'900',size:12},
+          formatter:(v,ctx)=>{
+            const total=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
+            return total ? (v/total*100).toFixed(0)+'%' : '';
+          }
+        }
+      }
+    }
+  });
+}
+
+function iniciais(nome){return (nome||'—').split(' ').filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase();}
+
+function renderMotoristas(arr){
+  const map={};
+  arr.forEach(d=>{
+    if(!map[d.motorista]) map[d.motorista]={qtd:0,chapaVal:0,totalVal:0,reg:[]};
+    map[d.motorista].qtd++;
+    map[d.motorista].totalVal+=d.valor;
+    if(d.tipo==='CHAPA') map[d.motorista].chapaVal+=d.valor;
+    map[d.motorista].reg.push(d);
+  });
+  const nomes=Object.keys(map).sort((a,b)=>map[b].totalVal-map[a].totalVal);
+  document.getElementById('tagMot').textContent = nomes.length+' no total';
+  const el=document.getElementById('mot');
+  if(!nomes.length){ el.innerHTML='<div class="empty"><p>Sem dados neste recorte.</p></div>'; return; }
+  el.innerHTML = nomes.map(m=>{
+    const safeName = encodeURIComponent(m);
+    return `
+    <div class="mcard" onclick="abrirDrill(decodeURIComponent('${safeName}'))">
+      <div class="mav">${iniciais(m)}</div>
+      <div class="mbody">
+        <div class="nm">${m}</div>
+        <div class="msub">${map[m].qtd} descargas</div>
+        <div class="mrow"><span>Chapa</span><span class="mval">${fmtBRL(map[m].chapaVal)}</span></div>
+        <div class="mrow"><span>Total</span><span>${fmtBRL(map[m].totalVal)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  window._motoristaMap = map;
+}
+
+function abrirDrill(motorista){
+  const dados = window._motoristaMap[motorista];
+  if(!dados) return;
+  document.getElementById('dt').textContent = motorista;
+  document.getElementById('ds').textContent = `Todas as descargas deste motorista (${mesAtual==='TODOS'?'todos os meses':'mês selecionado'})`;
+  const linhas = dados.reg.slice().sort((a,b)=>(parseData(a.data)||0)-(parseData(b.data)||0));
+  const temFrete = rel068Data.length || rel092Data.length;
+  let totalFreteMot = 0;
+  const chavesJaContadas = new Set();
+  const rows = linhas.map(r=>{
+    const f = temFrete ? freteDoRomaneio(r) : null;
+    if(f && !chavesJaContadas.has(f.romaneioResolvido)){ totalFreteMot += f.total; chavesJaContadas.add(f.romaneioResolvido); }
+    const pct = f && f.total ? (r.valor/f.total*100) : null;
+    const estourou = pct!==null && pct>100;
+    return `<tr>
+    <td>${r.data?(parseData(r.data)?parseData(r.data).toLocaleDateString('pt-BR'):r.data):'—'}</td>
+    <td>${r.cidade}</td><td>${r.motorista}</td><td>${r.tipo}</td><td>${r.tipoVeiculo}</td>
+    ${temFrete ? `<td>${f&&f.romaneioResolvido?f.romaneioResolvido:'—'}</td>` : ''}
+    <td style="text-align:right">${fmtBRL(r.valor)}</td>
+    ${temFrete ? `<td style="text-align:right">${f?fmtBRL(f.total):'—'}</td><td style="text-align:right">${pct!==null?`<span class="pill ${estourou?'warn':'ok'}">${pct.toFixed(1)+'%'}</span>`:'—'}</td>` : ''}
+  </tr>`;
+  }).join('');
+  document.getElementById('dtab').innerHTML = `<table>
+    <thead><tr><th>Data</th><th>Cidade</th><th>Motorista</th><th>Tipo</th><th>Veículo</th>${temFrete?'<th>Romaneio</th>':''}<th style="text-align:right">Valor (descarga)</th>${temFrete?'<th style="text-align:right">Frete</th><th style="text-align:right">% Descarga/Frete</th>':''}</tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="${temFrete?'6':'5'}">Total (${linhas.length})</td><td style="text-align:right">${fmtBRL(dados.totalVal)}</td>${temFrete?`<td style="text-align:right">${fmtBRL(totalFreteMot)}</td><td style="text-align:right">${totalFreteMot?(dados.totalVal/totalFreteMot*100).toFixed(1)+'%':'—'}</td>`:''}</tr></tfoot>
+  </table>`;
+  openDlg('dDrill');
+}
+
+function renderRankings(arr){
+  const chapa=arr.filter(d=>d.tipo==='CHAPA');
+  const porMot=Object.entries(agrupar(chapa,'motorista')).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const porCid=Object.entries(agrupar(arr,'cidade')).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  document.getElementById('t1').textContent = Object.keys(agrupar(chapa,'motorista')).length+' no total';
+  document.getElementById('t2').textContent = Object.keys(agrupar(arr,'cidade')).length+' no total';
+
+  document.getElementById('r1').innerHTML = porMot.length ? porMot.map(([n,v],i)=>`<li><span class="pos">${i+1}</span>${n}<span class="rv">${fmtBRL(v)}</span></li>`).join('') : '<div class="empty"><p>Sem dados.</p></div>';
+  document.getElementById('r2').innerHTML = porCid.length ? porCid.map(([n,v],i)=>`<li><span class="pos">${i+1}</span>${n}<span class="rv">${fmtBRL(v)}</span></li>`).join('') : '<div class="empty"><p>Sem dados.</p></div>';
+}
+
+function renderSaude(arr){
+  const chapa = arr.filter(d=>d.tipo==='CHAPA');
+  const dist = arr.filter(d=>d.tipo==='DISTRIBUIDOR');
+  const totalChapa = chapa.reduce((s,d)=>s+d.valor,0);
+  const totalGeral = arr.reduce((s,d)=>s+d.valor,0);
+  const pctChapa = totalGeral ? (totalChapa/totalGeral*100) : 0;
+  const ticketChapa = chapa.length ? totalChapa/chapa.length : 0;
+  const qtdChapaSoma = chapa.reduce((s,d)=>s+(d.qtdChapa||0),0);
+  const custoPorChapaUnid = qtdChapaSoma ? totalChapa/qtdChapaSoma : null;
+  const diasSoma = chapa.reduce((s,d)=>s+(d.qtdDias||0),0);
+  const custoPorDia = diasSoma ? totalChapa/diasSoma : null;
+  const cidadesAtivas = new Set(arr.map(d=>d.cidade)).size;
+  const motoristasAtivos = new Set(arr.map(d=>d.motorista)).size;
+
+  const itens = [
+    ['% do gasto em Chapa', pctChapa.toFixed(1)+'%'],
+    ['Ticket médio · Chapa', fmtBRL(ticketChapa)],
+    ['Custo médio por chapa (unid.)', custoPorChapaUnid!=null?fmtBRL(custoPorChapaUnid):'—'],
+    ['Custo médio por dia de chapa', custoPorDia!=null?fmtBRL(custoPorDia):'—'],
+    ['Cidades com solicitação', cidadesAtivas],
+    ['Motoristas ativos no período', motoristasAtivos],
+    ['Total em Distribuidor', fmtBRL(dist.reduce((s,d)=>s+d.valor,0))],
+    ['Qtd. descargas (Chapa)', chapa.length],
+  ];
+  document.getElementById('saudeChapa').innerHTML = itens.map(([k,v])=>`
+    <div style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)">${k}</div>
+      <div style="font-size:15px;font-weight:900;margin-top:4px;color:var(--navy)">${v}</div>
+    </div>`).join('');
+}
+
+function renderComparativoMes(){
+  const porMes={};
+  rawData.filter(d=>d.tipo==='CHAPA').forEach(d=>{
+    const dt=parseData(d.data); if(!dt) return;
+    const chave=chaveMes(dt);
+    porMes[chave]=(porMes[chave]||0)+d.valor;
+  });
+  const nomesMes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const chaves=Object.keys(porMes).sort();
+  const el=document.getElementById('compMes');
+  if(chaves.length<2){ el.innerHTML='<div class="empty"><p>Dados de pelo menos 2 meses são necessários para comparar.</p></div>'; return; }
+  const ultimo=chaves[chaves.length-1], anterior=chaves[chaves.length-2];
+  const vAtual=porMes[ultimo], vAnt=porMes[anterior];
+  const variacao = vAnt ? ((vAtual-vAnt)/vAnt*100) : 0;
+  const subiu = variacao>=0;
+  const [aY,aM]=ultimo.split('-'); const [bY,bM]=anterior.split('-');
+  el.innerHTML=`
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <div>
+        <div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)">${nomesMes[parseInt(bM)-1]}/${bY}</div>
+        <div style="font-size:18px;font-weight:900">${fmtBRL(vAnt)}</div>
+      </div>
+      <div style="font-size:20px;color:var(--text-3)">→</div>
+      <div>
+        <div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)">${nomesMes[parseInt(aM)-1]}/${aY}</div>
+        <div style="font-size:18px;font-weight:900">${fmtBRL(vAtual)}</div>
+      </div>
+      <div style="margin-left:auto;padding:8px 14px;border-radius:12px;background:${subiu?'#fdeceb':'#e6f7f2'};color:${subiu?'var(--red)':'var(--tecmar-green)'};font-weight:900;font-size:14px">
+        ${subiu?'▲':'▼'} ${Math.abs(variacao).toFixed(1)}%
+      </div>
+    </div>
+    <p style="margin-top:10px;font-size:11.5px;color:var(--text-2);font-weight:700">Comparativo do gasto em Chapa entre os dois últimos meses com dados.</p>
+  `;
+}
+
+function renderIntervalos(arr){
+  const chapa = arr.filter(d=>d.tipo==='CHAPA' && parseData(d.data));
+  const porMot = {};
+  chapa.forEach(d=>{ (porMot[d.motorista] ||= []).push(parseData(d.data)); });
+
+  const linhas = [];
+  Object.entries(porMot).forEach(([mot,datas])=>{
+    if(datas.length<2) return;
+    const ordenadas = datas.slice().sort((a,b)=>a-b);
+    const diffs=[];
+    for(let i=1;i<ordenadas.length;i++){
+      diffs.push(Math.round((ordenadas[i]-ordenadas[i-1])/86400000));
+    }
+    const media = diffs.reduce((s,v)=>s+v,0)/diffs.length;
+    linhas.push([mot, media, datas.length]);
+  });
+  linhas.sort((a,b)=>a[1]-b[1]);
+
+  const el=document.getElementById('rIntervalo');
+  if(!linhas.length){ el.innerHTML='<div class="empty"><p>É preciso pelo menos 2 solicitações de chapa do mesmo motorista para calcular.</p></div>'; return; }
+  el.innerHTML = linhas.slice(0,10).map(([mot,media,qtd],i)=>`
+    <li><span class="pos">${i+1}</span>${mot}
+      <span class="rv">${media.toFixed(1)} dias <span style="color:var(--text-3);font-weight:700">(${qtd} solic.)</span></span>
+    </li>`).join('');
+}
+
+function renderComplementos(arr){
+  const comRomaneio = arr.filter(d=>d.romaneio);
+  const porRomaneio = {};
+  comRomaneio.forEach(d=>{ (porRomaneio[d.romaneio] ||= []).push(d); });
+
+  const repetidos = Object.entries(porRomaneio).filter(([,regs])=>regs.length>1)
+    .sort((a,b)=>b[1].length-a[1].length);
+
+  const totalComplementos = repetidos.reduce((s,[,regs])=>s+(regs.length-1),0);
+  document.getElementById('tagComplemento').textContent = totalComplementos+' complementos no total';
+
+  const el=document.getElementById('rComplemento');
+  if(!comRomaneio.length){
+    el.innerHTML = '<div class="empty"><p>A planilha conectada ainda não traz a coluna de Romaneio — assim que existir, os complementos aparecem aqui.</p></div>';
+    return;
+  }
+  if(!repetidos.length){ el.innerHTML='<div class="empty"><p>Nenhum romaneio repetido neste recorte.</p></div>'; return; }
+  el.innerHTML = repetidos.slice(0,10).map(([rom,regs],i)=>`
+    <li><span class="pos">${i+1}</span>Romaneio ${rom}
+      <span class="rv">${regs.length}x <span style="color:var(--text-3);font-weight:700">(${regs.length-1} compl.)</span></span>
+    </li>`).join('');
+}
+
+carregarRel068Salvo();
+carregarDados();
+</script>
+</body>
+</html>
