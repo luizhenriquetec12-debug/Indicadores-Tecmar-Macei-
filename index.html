@@ -294,7 +294,8 @@
 </div>
 
 <script>
-let API_URL = localStorage.getItem('tecmar_api_indicadores') || '';
+const DEFAULT_API_URL = 'https://default6df7faa86bb74e5f867deffa207577.ee.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/22/workflows/ce431cf7959247a28a674ee090097e57/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Hh2axSO5CA2wylZZpnnKaJEgbt1qGzWHP696krc65x0';
+let API_URL = localStorage.getItem('tecmar_api_indicadores') || DEFAULT_API_URL;
 Chart.register(ChartDataLabels);
 Chart.defaults.set('plugins.datalabels', {display:false});
 let rawData = [];
