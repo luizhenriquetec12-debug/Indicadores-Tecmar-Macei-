@@ -23,8 +23,31 @@
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
-  const DOC_REL068 = db.collection('tecmar_indicadores').doc('rel068');
-  const DOC_REL092 = db.collection('tecmar_indicadores').doc('rel092');
+  // O Firestore tem limite de 1MB por documento. Guardar tudo num único
+  // documento (itens: [...]) estourava esse limite com a base cheia e o
+  // .set() falhava em silêncio — os dados sumiam na sincronização seguinte.
+  // Por isso cada relatório vira uma SUBCOLEÇÃO de "pedaços" (chunks),
+  // cada um bem abaixo do limite.
+  const CHUNK_SIZE = 1500;
+  const CHUNKS_REL068 = db.collection('tecmar_indicadores').doc('rel068').collection('chunks');
+  const CHUNKS_REL092 = db.collection('tecmar_indicadores').doc('rel092').collection('chunks');
+
+  async function salvarEmChunks(chunksRef, data){
+    const snapAtual = await chunksRef.get();
+    const qtdChunksAntigos = snapAtual.size;
+    const batch = db.batch();
+    for(let i=0; i*CHUNK_SIZE < data.length || i===0; i++){
+      const pedaco = data.slice(i*CHUNK_SIZE, (i+1)*CHUNK_SIZE);
+      if(pedaco.length === 0 && data.length > 0) break;
+      batch.set(chunksRef.doc(String(i)), { itens: pedaco });
+      if(data.length === 0) break;
+    }
+    const qtdChunksNovos = data.length === 0 ? 1 : Math.max(1, Math.ceil(data.length / CHUNK_SIZE));
+    for(let i=qtdChunksNovos; i<qtdChunksAntigos; i++){
+      batch.delete(chunksRef.doc(String(i)));
+    }
+    await batch.commit();
+  }
 </script>
 <style>
   :root{
@@ -294,8 +317,7 @@
 </div>
 
 <script>
-const DEFAULT_API_URL = 'https://default6df7faa86bb74e5f867deffa207577.ee.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/22/workflows/ce431cf7959247a28a674ee090097e57/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Hh2axSO5CA2wylZZpnnKaJEgbt1qGzWHP696krc65x0';
-let API_URL = localStorage.getItem('tecmar_api_indicadores') || DEFAULT_API_URL;
+let API_URL = localStorage.getItem('tecmar_api_indicadores') || '';
 Chart.register(ChartDataLabels);
 Chart.defaults.set('plugins.datalabels', {display:false});
 let rawData = [];
@@ -496,7 +518,7 @@ function normalizarRel068(linhas){
     distribuidor: (pick(r,'nome destinatário','nome destinatario','distribuidor','cliente','destinatario','destinatário') || '').toString().trim().toUpperCase(),
     valorFrete: parseValorBR(pick(r,'vl frete','valor frete','frete','valor do frete','vlr frete')),
     notas: (pick(r,'notas fiscais','nota fiscal','notas','nota') || '').toString().trim(),
-    estab: removerZerosEsquerda((pick(r,'estabel destino','estabelecimento') || '').toString().trim().replace(/\.0+$/,'')),
+    estab: removerZerosEsquerda((pick(r,'estabelecimento','estabel destino') || '').toString().trim().replace(/\.0+$/,'')),
   })).filter(r=>r.romaneio);
 }
 
@@ -534,12 +556,20 @@ function normalizarRel092(headers, rows){
   }
   const idxMotorista = h.findIndex(nome => nome === 'motorista');
 
+  // Coluna ESTABELECIMENTO (valor "1" na primeira linha) é diferente da coluna
+  // "Estabel Destino". É a ESTABELECIMENTO que diferencia CTEs com o mesmo
+  // número puro mas de estabelecimentos distintos — por isso a busca é exata
+  // primeiro, e só cai para variações caso a coluna exata não exista.
+  let idxEstab = h.findIndex(nome => nome === 'estabelecimento');
+  if(idxEstab === -1) idxEstab = h.findIndex(nome => nome.includes('estabelecimento'));
+
   return rows.map(row => ({
     romaneio: normRomaneio(idxRomaneio > -1 ? row[idxRomaneio] : ''),
     motorista: ((idxMotorista > -1 ? row[idxMotorista] : '') || '').toString().trim().toUpperCase(),
     tipo: '',
     valorFrete: idxValorFrete > -1 ? parseValorBR(row[idxValorFrete]) : 0,
     cte: idxCte > -1 ? removerZerosEsquerda(limparApostrofo(row[idxCte] || '')) : '',
+    estab: idxEstab > -1 ? removerZerosEsquerda((row[idxEstab] || '').toString().trim().replace(/\.0+$/,'')) : '',
   })).filter(r => r.romaneio);
 }
 
@@ -583,16 +613,18 @@ function carregarRel068Salvo(){
   indexarRel068(); indexarRel092();
   atualizarStatusRel068();
 
-  DOC_REL068.onSnapshot(doc=>{
-    if(!doc.exists) return;
-    rel068Data = doc.data().itens || [];
+  CHUNKS_REL068.onSnapshot(snap=>{
+    const pedacos = [];
+    snap.forEach(doc=>pedacos[Number(doc.id)] = doc.data().itens || []);
+    rel068Data = [].concat(...pedacos.filter(Boolean));
     localStorage.setItem('tecmar_rel068_data', JSON.stringify(rel068Data));
     indexarRel068(); atualizarStatusRel068(); montarTudo();
   }, err=>console.error('Erro ao sincronizar REL068:', err));
 
-  DOC_REL092.onSnapshot(doc=>{
-    if(!doc.exists) return;
-    rel092Data = doc.data().itens || [];
+  CHUNKS_REL092.onSnapshot(snap=>{
+    const pedacos = [];
+    snap.forEach(doc=>pedacos[Number(doc.id)] = doc.data().itens || []);
+    rel092Data = [].concat(...pedacos.filter(Boolean));
     localStorage.setItem('tecmar_rel092_data', JSON.stringify(rel092Data));
     indexarRel092(); atualizarStatusRel068(); montarTudo();
   }, err=>console.error('Erro ao sincronizar REL092:', err));
@@ -621,28 +653,48 @@ function abrirModalRel068(){
 document.getElementById('btnRel033').addEventListener('click', abrirModalRel033);
 document.getElementById('btnRel068').addEventListener('click', abrirModalRel068);
 
+// Chave de deduplicação: estabelecimento + CTE. O número do CTE sozinho pode
+// se repetir entre estabelecimentos diferentes, então o estabelecimento entra
+// na chave para não tratar CTEs de lugares distintos como se fossem duplicados.
+function chaveDedupCte(r){
+  return (r.cte && r.cte !== '0') ? (r.estab || '') + '|' + r.cte : Math.random();
+}
+
 function salvarRel068(novas){
   const mapa = {};
-  rel068Data.forEach(r=>{ mapa[(r.cte && r.cte !== '0') ? r.cte : Math.random()] = r; });
-  novas.forEach(r=>{ mapa[(r.cte && r.cte !== '0') ? r.cte : Math.random()] = r; });
+  rel068Data.forEach(r=>{ mapa[chaveDedupCte(r)] = r; });
+  novas.forEach(r=>{ mapa[chaveDedupCte(r)] = r; });
   rel068Data = Object.values(mapa);
   localStorage.setItem('tecmar_rel068_data', JSON.stringify(rel068Data));
   indexarRel068(); atualizarStatusRel068(); montarTudo();
-  DOC_REL068.set({ itens: rel068Data, atualizadoEm: new Date().toISOString() })
-    .catch(err=>console.error('Erro ao salvar REL068 no Firestore:', err));
+  salvarEmChunks(CHUNKS_REL068, rel068Data)
+    .catch(err=>{
+      console.error('Erro ao salvar REL068 no Firestore:', err);
+      const el = document.getElementById('rel068Status');
+      if(el){ el.textContent = 'Dados salvos neste aparelho, mas falhou ao sincronizar com o Firestore — verifique a conexão.'; el.style.color = 'var(--red)'; }
+    });
 }
 
 function salvarRel092(novas){
-  // REL033 é sempre um snapshot completo — substitui os dados antigos em vez
-  // de acumular (senão importações repetidas ficam com lixo de versões
-  // anteriores misturado, e a reconciliação pode pegar a linha errada).
-  rel092Data = novas;
+  // REL033 agora mescla em vez de substituir: cada linha nova entra pela
+  // chave estabelecimento+CTE — se já existir uma linha com essa chave, ela é
+  // atualizada; se for uma chave nova, é somada à lista. Assim um import de
+  // 09/09 a 25/09 se soma ao que já tinha até 08/09, sem duplicar nem perder
+  // o que já foi importado antes.
+  const mapa = {};
+  rel092Data.forEach(r=>{ mapa[chaveDedupCte(r)] = r; });
+  novas.forEach(r=>{ mapa[chaveDedupCte(r)] = r; });
+  rel092Data = Object.values(mapa);
   localStorage.setItem('tecmar_rel092_data', JSON.stringify(rel092Data));
   indexarRel092();
   atualizarStatusRel068();
   montarTudo();
-  DOC_REL092.set({ itens: rel092Data, atualizadoEm: new Date().toISOString() })
-    .catch(err=>console.error('Erro ao salvar REL092 no Firestore:', err));
+  salvarEmChunks(CHUNKS_REL092, rel092Data)
+    .catch(err=>{
+      console.error('Erro ao salvar REL092 no Firestore:', err);
+      const el = document.getElementById('rel092Status');
+      if(el){ el.textContent = 'Dados salvos neste aparelho, mas falhou ao sincronizar com o Firestore — verifique a conexão.'; el.style.color = 'var(--red)'; }
+    });
 }
 
 const PALAVRAS_REL068 = ['romaneio','conhecimento','frete','destinat'];
@@ -666,7 +718,7 @@ document.getElementById('rel092File').addEventListener('change', async (e)=>{
       statusEl.textContent = `${novas.length} linhas carregadas com frete, mas sem número de CTE identificado — a reconciliação por CTE não vai funcionar.`;
       statusEl.style.color = 'var(--red)';
     } else {
-      statusEl.textContent = `${novas.length} linhas (REL033) carregadas — ${comFrete} com frete, ${comCte} com CTE.`;
+      statusEl.textContent = `${novas.length} linhas lidas deste arquivo (${comFrete} com frete, ${comCte} com CTE) — total acumulado agora: ${rel092Data.length} linhas.`;
       statusEl.style.color = '';
     }
   }catch(err){ console.error(err); statusEl.textContent = 'Erro ao ler o arquivo: '+err.message; }
@@ -701,8 +753,8 @@ function limparFretesImportados(){
   localStorage.removeItem('tecmar_rel092_data');
   atualizarStatusRel068();
   montarTudo();
-  DOC_REL068.set({ itens: [], atualizadoEm: new Date().toISOString() }).catch(err=>console.error(err));
-  DOC_REL092.set({ itens: [], atualizadoEm: new Date().toISOString() }).catch(err=>console.error(err));
+  salvarEmChunks(CHUNKS_REL068, []).catch(err=>console.error('Erro ao limpar REL068 no Firestore:', err));
+  salvarEmChunks(CHUNKS_REL092, []).catch(err=>console.error('Erro ao limpar REL092 no Firestore:', err));
 }
 document.getElementById('btnRel068Clear').addEventListener('click', limparFretesImportados);
 document.getElementById('btnRel033Clear').addEventListener('click', limparFretesImportados);
